@@ -13,12 +13,17 @@ function stripUndefined<T>(value: T): T {
 
 export async function saveReasoningSession(user: User, result: ReasoningResult, imageFile?: File | null) {
   let imageUrl = "";
+  let imageUploadError = "";
 
   if (imageFile) {
-    const safeName = imageFile.name.replace(/[^a-z0-9.-]/gi, "_");
-    const imageRef = ref(storage, `users/${user.uid}/reasoning-images/${Date.now()}-${safeName}`);
-    await uploadBytes(imageRef, imageFile, { contentType: imageFile.type });
-    imageUrl = await getDownloadURL(imageRef);
+    try {
+      const safeName = imageFile.name.replace(/[^a-z0-9.-]/gi, "_");
+      const imageRef = ref(storage, `users/${user.uid}/reasoning-images/${Date.now()}-${safeName}`);
+      await uploadBytes(imageRef, imageFile, { contentType: imageFile.type });
+      imageUrl = await getDownloadURL(imageRef);
+    } catch (error) {
+      imageUploadError = (error as Error).message;
+    }
   }
 
   const doc = await addDoc(
@@ -26,6 +31,7 @@ export async function saveReasoningSession(user: User, result: ReasoningResult, 
     stripUndefined({
       ...result,
       imageUrl,
+      imageUploadError,
       userId: user.uid,
       userEmail: user.email,
       createdAt: serverTimestamp(),
