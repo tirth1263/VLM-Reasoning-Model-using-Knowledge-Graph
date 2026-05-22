@@ -102,6 +102,27 @@ export function ReasoningConsole({ onResult }: Props) {
         </label>
       </div>
 
+      <div className="console-stats" aria-label="Research metrics">
+        <div>
+          <strong>112,905</strong>
+          <span>KG facts</span>
+        </div>
+        <div>
+          <strong>16</strong>
+          <span>physics rules</span>
+        </div>
+        <div>
+          <strong>+3.3</strong>
+          <span>accuracy points</span>
+        </div>
+        <div className="signal-visual" aria-hidden="true">
+          <span></span>
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+      </div>
+
       <div className="example-row" aria-label="Example prompts">
         {examples.map((example) => (
           <button
