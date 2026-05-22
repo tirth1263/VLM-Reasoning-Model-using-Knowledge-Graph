@@ -31,7 +31,7 @@ Open the local Vite URL printed in the terminal.
 
 ## Firebase
 
-The project is configured for Firebase project `vlm-reasoning-model`.
+The project is configured for Firebase project `vlm-reasoning-model-b760f`.
 
 ```bash
 npm run build

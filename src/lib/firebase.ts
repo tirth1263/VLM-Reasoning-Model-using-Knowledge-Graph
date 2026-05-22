@@ -6,13 +6,13 @@ import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyBFwDJJ2cQptn7_pwFP6aK1tmyeZdWDXUw",
-  authDomain: "vlm-reasoning-model.firebaseapp.com",
-  projectId: "vlm-reasoning-model",
-  storageBucket: "vlm-reasoning-model.firebasestorage.app",
-  messagingSenderId: "213423263457",
-  appId: "1:213423263457:web:a97b8783374d15592f31a0",
-  measurementId: "G-CHQNC95FYP",
+  apiKey: "AIzaSyAufLzL0ESDa1iabnSvyLQM6fAvHcNE9FQ",
+  authDomain: "vlm-reasoning-model-b760f.firebaseapp.com",
+  projectId: "vlm-reasoning-model-b760f",
+  storageBucket: "vlm-reasoning-model-b760f.firebasestorage.app",
+  messagingSenderId: "957587924968",
+  appId: "1:957587924968:web:0bc8a145473616c01fe65d",
+  measurementId: "G-00NDWLR0ZH",
 };
 
 export const app = initializeApp(firebaseConfig);
