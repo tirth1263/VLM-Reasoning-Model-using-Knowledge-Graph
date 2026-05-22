@@ -60,6 +60,85 @@ function scoreChoice(choice: Choice, question: string, facts: RetrievedFact[], r
   return score;
 }
 
+function factSentence(fact: RetrievedFact) {
+  switch (fact.relation) {
+    case "UsedFor":
+      return `${fact.subject} is used for ${fact.object}`;
+    case "HasProperty":
+      return `${fact.subject} has the physical property: ${fact.object}`;
+    case "CapableOf":
+      return `${fact.subject} is capable of ${fact.object}`;
+    case "MadeOf":
+      return `${fact.subject} is made of or contains ${fact.object}`;
+    case "Causes":
+      return `${fact.subject} can cause ${fact.object}`;
+    default:
+      return `${fact.subject} is related to ${fact.object}`;
+  }
+}
+
+function answerFreeResponse(question: string, facts: RetrievedFact[], rules: FiredRule[], condition: EvaluationCondition): ModelAnswer {
+  const topFact = facts[0];
+  const topRule = rules[0];
+  const evidence = [
+    ...facts.slice(0, 4).map((fact) => `${fact.subject} ${fact.relation}: ${fact.object}`),
+    ...rules.slice(0, 3).map((rule) => rule.statement),
+  ];
+
+  if (condition === "baseline") {
+    const answer = "The baseline model answers from the image/question alone, so it may miss material-specific physical properties without retrieved KG evidence.";
+    return {
+      answer,
+      confidence: 0.34,
+      reasoning: answer,
+      evidence,
+      source: "local-symbolic",
+    };
+  }
+
+  if (topRule && topFact) {
+    const answer = `${topRule.statement} The knowledge graph also supports this: ${sentence(factSentence(topFact))}`;
+    return {
+      answer,
+      confidence: 0.82,
+      reasoning: `Combined the strongest physics rule with the top ConceptNet-style fact for the question: "${question}"`,
+      evidence,
+      source: "local-symbolic",
+    };
+  }
+
+  if (topFact) {
+    const answer = `${sentence(factSentence(topFact))} This retrieved fact directly grounds the answer in a physical property or use.`;
+    return {
+      answer,
+      confidence: 0.76,
+      reasoning: `Used the top retrieved ConceptNet-style fact for the detected object "${topFact.subject}".`,
+      evidence,
+      source: "local-symbolic",
+    };
+  }
+
+  if (topRule) {
+    const answer = `${topRule.statement} ${topRule.explanation}`;
+    return {
+      answer,
+      confidence: 0.72,
+      reasoning: `Used a hand-written physics rule because it matched the question context.`,
+      evidence,
+      source: "local-symbolic",
+    };
+  }
+
+  const answer = "I need more visual or textual grounding to answer reliably.";
+  return {
+    answer,
+    confidence: 0.32,
+    reasoning: answer,
+    evidence,
+    source: "local-symbolic",
+  };
+}
+
 function answerLocally(question: string, choices: Choice[], options: AnswerOptions): ModelAnswer {
   const ranked = choices
     .map((choice) => ({
@@ -92,21 +171,7 @@ function answerLocally(question: string, choices: Choice[], options: AnswerOptio
     };
   }
 
-  const topFact = options.facts[0];
-  const topRule = options.rules[0];
-  const answer = topRule
-    ? `${topRule.statement} ${topRule.explanation}`
-    : topFact
-      ? `${topFact.subject} ${topFact.relation.toLowerCase()} ${topFact.object}.`
-      : "I need more visual or textual grounding to answer reliably.";
-
-  return {
-    answer,
-    confidence: topFact || topRule ? 0.72 : 0.32,
-    reasoning: answer,
-    evidence,
-    source: "local-symbolic",
-  };
+  return answerFreeResponse(question, options.facts, options.rules, options.condition);
 }
 
 export async function runReasoning(input: ReasoningInput): Promise<ReasoningResult> {

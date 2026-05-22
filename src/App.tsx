@@ -49,8 +49,14 @@ function App() {
       setNotice("Run completed locally. Sign in with Google to save it to Firebase.");
       return;
     }
-    await saveReasoningSession(user, nextResult, imageFile);
-    setNotice("Reasoning session saved to Firebase.");
+    const saved = await saveReasoningSession(user, nextResult, imageFile);
+    setNotice(
+      imageFile
+        ? saved.imageUploadError
+          ? "Reasoning session saved to Firestore. Firebase Storage did not accept the image yet."
+          : "Reasoning session saved and image uploaded to Firebase Storage."
+        : "Reasoning session saved to Firebase.",
+    );
     await refreshHistory();
   }
 
@@ -85,12 +91,13 @@ function App() {
         </button>
       )}
 
-      <div className="main-grid">
-        <div className="primary-stack">
-          <ReasoningConsole onResult={handleResult} />
-          <ResultPanel result={result} />
-          <EvaluationLab run={evaluation} onRun={setEvaluation} onSave={handleEvaluationSave} />
-        </div>
+      <div className="main-grid implementation-grid">
+        <ReasoningConsole onResult={handleResult} />
+        <ResultPanel result={result} />
+      </div>
+
+      <div className="secondary-grid">
+        <EvaluationLab run={evaluation} onRun={setEvaluation} onSave={handleEvaluationSave} />
         <aside className="side-stack">
           <HistoryPanel sessions={sessions} onRefresh={refreshHistory} onSelect={setResult} />
           <KnowledgeExplorer />

@@ -1,5 +1,16 @@
-import { BrainCircuit, FileImage, FlaskConical, Play, UploadCloud, WandSparkles, X } from "lucide-react";
-import { useMemo, useState } from "react";
+import {
+  BrainCircuit,
+  FileImage,
+  FlaskConical,
+  ImageIcon,
+  ListChecks,
+  MessageSquareText,
+  Play,
+  UploadCloud,
+  WandSparkles,
+  X,
+} from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import type { Choice, ReasoningInput, ReasoningResult } from "../types";
 import { runReasoning } from "../model/localReasoner";
 
@@ -15,34 +26,28 @@ const examples: Array<{
   question: string;
   choices: Choice[];
   imageDescription: string;
+  mode?: "free" | "multiple";
 }> = [
   {
     label: "Copper wiring",
-    question: "Why is copper often used inside electrical wiring?",
-    choices: sampleChoices,
-    imageDescription: "A cut electrical wire exposes copper strands inside plastic insulation.",
+    question: "Why is this material used for electrical wiring?",
+    choices: [],
+    imageDescription: "A close-up of copper wire strands with plastic insulation.",
+    mode: "free",
   },
   {
     label: "Rubber vs glass",
-    question: "A rubber ball and a glass ball are dropped. What is most likely?",
-    choices: [
-      { id: "A", text: "Rubber bounces and glass can shatter" },
-      { id: "B", text: "Glass bounces higher than rubber" },
-      { id: "C", text: "Both become gases" },
-      { id: "D", text: "Copper conducts electricity" },
-    ],
-    imageDescription: "A rubber ball and a glass ball are next to each other above a hard floor.",
+    question: "Which of these breaks when dropped?",
+    choices: [],
+    imageDescription: "A glass ball and a rubber ball are sitting side by side.",
+    mode: "free",
   },
   {
     label: "Tree shadow",
     question: "The sun is behind a tree. Where does the tree's shadow fall?",
-    choices: [
-      { id: "A", text: "Toward the sun" },
-      { id: "B", text: "Opposite the sun" },
-      { id: "C", text: "Inside the tree" },
-      { id: "D", text: "Only above the tree" },
-    ],
+    choices: [],
     imageDescription: "A tree stands in sunlight with a visible shadow on the ground.",
+    mode: "free",
   },
 ];
 
@@ -52,17 +57,35 @@ type Props = {
 
 export function ReasoningConsole({ onResult }: Props) {
   const [question, setQuestion] = useState(examples[0].question);
-  const [choices, setChoices] = useState<Choice[]>(examples[0].choices);
+  const [choices, setChoices] = useState<Choice[]>(sampleChoices);
   const [imageDescription, setImageDescription] = useState(examples[0].imageDescription);
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [answerMode, setAnswerMode] = useState<"free" | "multiple">("free");
   const [useFirebaseAi, setUseFirebaseAi] = useState(false);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState("");
 
-  const ready = useMemo(() => question.trim().length > 5 && choices.some((choice) => choice.text.trim()), [choices, question]);
+  const ready = useMemo(
+    () => question.trim().length > 5 && (answerMode === "free" || choices.some((choice) => choice.text.trim())),
+    [answerMode, choices, question],
+  );
+
+  const imagePreviewUrl = useMemo(() => (imageFile ? URL.createObjectURL(imageFile) : ""), [imageFile]);
+
+  useEffect(() => {
+    if (!imagePreviewUrl) return;
+    return () => URL.revokeObjectURL(imagePreviewUrl);
+  }, [imagePreviewUrl]);
 
   function updateChoice(index: number, text: string) {
     setChoices((current) => current.map((choice, itemIndex) => (itemIndex === index ? { ...choice, text } : choice)));
+  }
+
+  function updateImage(file: File | null) {
+    setImageFile(file);
+    if (file && !imageDescription.trim()) {
+      setImageDescription(file.name.replace(/\.[a-z0-9]+$/i, "").replace(/[-_]/g, " "));
+    }
   }
 
   async function run() {
@@ -72,7 +95,7 @@ export function ReasoningConsole({ onResult }: Props) {
     try {
       const payload: ReasoningInput = {
         question,
-        choices: choices.filter((choice) => choice.text.trim()),
+        choices: answerMode === "free" ? [] : choices.filter((choice) => choice.text.trim()),
         imageFile,
         imageDescription,
         useFirebaseAi,
@@ -131,14 +154,26 @@ export function ReasoningConsole({ onResult }: Props) {
             key={example.label}
             onClick={() => {
               setQuestion(example.question);
-              setChoices(example.choices);
+              setChoices(example.choices.length ? example.choices : sampleChoices);
               setImageDescription(example.imageDescription);
+              setAnswerMode(example.mode ?? "free");
             }}
           >
             <WandSparkles size={15} />
             {example.label}
           </button>
         ))}
+      </div>
+
+      <div className="mode-toggle" aria-label="Answer mode">
+        <button className={answerMode === "free" ? "active" : ""} type="button" onClick={() => setAnswerMode("free")}>
+          <MessageSquareText size={16} />
+          Free response
+        </button>
+        <button className={answerMode === "multiple" ? "active" : ""} type="button" onClick={() => setAnswerMode("multiple")}>
+          <ListChecks size={16} />
+          Multiple choice
+        </button>
       </div>
 
       <div className="console-grid">
@@ -159,29 +194,50 @@ export function ReasoningConsole({ onResult }: Props) {
             id="image-upload"
             type="file"
             accept="image/png,image/jpeg,image/webp"
-            onChange={(event) => setImageFile(event.target.files?.[0] ?? null)}
+            onChange={(event) => updateImage(event.target.files?.[0] ?? null)}
           />
-          <label htmlFor="image-upload">
-            <UploadCloud size={28} />
-            <strong>{imageFile ? imageFile.name : "Upload image"}</strong>
-            <span>{imageFile ? `${Math.round(imageFile.size / 1024)} KB ready for Storage` : "PNG, JPG, or WebP"}</span>
+          <label
+            htmlFor="image-upload"
+            onDragOver={(event) => event.preventDefault()}
+            onDrop={(event) => {
+              event.preventDefault();
+              updateImage(event.dataTransfer.files?.[0] ?? null);
+            }}
+          >
+            {imagePreviewUrl ? (
+              <img className="image-preview" src={imagePreviewUrl} alt={imageFile?.name ?? "Uploaded preview"} />
+            ) : (
+              <div className="upload-placeholder">
+                <ImageIcon size={30} />
+                <strong>Drop image or click to upload</strong>
+                <span>PNG, JPG, or WebP</span>
+              </div>
+            )}
+            {imagePreviewUrl && (
+              <div className="upload-caption">
+                <UploadCloud size={15} />
+                <span>{imageFile ? `${imageFile.name} - ${Math.round(imageFile.size / 1024)} KB ready for Firebase Storage` : "Image ready"}</span>
+              </div>
+            )}
           </label>
           {imageFile && (
-            <button className="ghost-icon" type="button" onClick={() => setImageFile(null)} aria-label="Remove image">
+            <button className="ghost-icon" type="button" onClick={() => updateImage(null)} aria-label="Remove image">
               <X size={16} />
             </button>
           )}
         </div>
       </div>
 
-      <div className="choices-grid">
-        {choices.map((choice, index) => (
-          <label className="choice-input" key={choice.id}>
-            <span>{choice.id}</span>
-            <input value={choice.text} onChange={(event) => updateChoice(index, event.target.value)} />
-          </label>
-        ))}
-      </div>
+      {answerMode === "multiple" && (
+        <div className="choices-grid">
+          {choices.map((choice, index) => (
+            <label className="choice-input" key={choice.id}>
+              <span>{choice.id}</span>
+              <input value={choice.text} onChange={(event) => updateChoice(index, event.target.value)} />
+            </label>
+          ))}
+        </div>
+      )}
 
       {error && <p className="error-text">{error}</p>}
 
@@ -192,7 +248,7 @@ export function ReasoningConsole({ onResult }: Props) {
         </div>
         <button className="primary-button" type="button" disabled={!ready || running} onClick={run}>
           {running ? <FlaskConical size={18} /> : <Play size={18} />}
-          <span>{running ? "Reasoning" : "Run model"}</span>
+          <span>{running ? "Reasoning" : "Analyze"}</span>
         </button>
       </div>
     </section>

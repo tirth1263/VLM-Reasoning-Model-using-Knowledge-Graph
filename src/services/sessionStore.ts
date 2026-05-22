@@ -39,7 +39,7 @@ export async function saveReasoningSession(user: User, result: ReasoningResult, 
     }),
   );
 
-  return doc.id;
+  return { id: doc.id, imageUrl, imageUploadError };
 }
 
 export async function loadRecentSessions(user: User) {
