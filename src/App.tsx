@@ -5,6 +5,7 @@ import { HistoryPanel } from "./components/HistoryPanel";
 import { KnowledgeExplorer } from "./components/KnowledgeExplorer";
 import { ReasoningConsole } from "./components/ReasoningConsole";
 import { ResultPanel } from "./components/ResultPanel";
+import { ThemeSwitcher, type ThemeName } from "./components/ThemeSwitcher";
 import { useAuth } from "./hooks/useAuth";
 import { loadRecentSessions, saveEvaluationRun, saveReasoningSession } from "./services/sessionStore";
 import type { EvaluationRun, ReasoningResult } from "./types";
@@ -16,6 +17,11 @@ function App() {
   const [sessions, setSessions] = useState<ReasoningResult[]>([]);
   const [evaluation, setEvaluation] = useState<EvaluationRun | null>(null);
   const [notice, setNotice] = useState("");
+  const [theme, setTheme] = useState<ThemeName>(() => {
+    if (typeof window === "undefined") return "default";
+    const saved = window.localStorage.getItem("vlm-theme");
+    return saved === "light" || saved === "dark" || saved === "default" ? saved : "default";
+  });
 
   const refreshHistory = useCallback(async () => {
     if (!user) {
@@ -31,6 +37,11 @@ function App() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void refreshHistory();
   }, [refreshHistory]);
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    window.localStorage.setItem("vlm-theme", theme);
+  }, [theme]);
 
   async function handleResult(nextResult: ReasoningResult, imageFile?: File | null) {
     setResult(nextResult);
@@ -62,7 +73,10 @@ function App() {
             <small>Knowledge Graph + Physical Rules</small>
           </div>
         </div>
-        <AuthPanel user={user} loading={loading} onSignIn={signIn} onSignOut={signOut} />
+        <div className="top-actions">
+          <ThemeSwitcher theme={theme} onThemeChange={setTheme} />
+          <AuthPanel user={user} loading={loading} onSignIn={signIn} onSignOut={signOut} />
+        </div>
       </header>
 
       {notice && (
