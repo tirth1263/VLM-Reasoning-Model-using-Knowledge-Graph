@@ -11,8 +11,8 @@ const firebaseConfig = {
   projectId: "vlm-reasoning-model",
   storageBucket: "vlm-reasoning-model.firebasestorage.app",
   messagingSenderId: "213423263457",
-  appId: "1:213423263457:web:c6a732e8d133c5912f31a0",
-  measurementId: "G-BVPDDZD41F",
+  appId: "1:213423263457:web:a97b8783374d15592f31a0",
+  measurementId: "G-CHQNC95FYP",
 };
 
 export const app = initializeApp(firebaseConfig);
