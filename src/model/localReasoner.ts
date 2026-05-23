@@ -1,15 +1,17 @@
-import type { Choice, EvaluationCondition, FiredRule, ModelAnswer, ReasoningInput, ReasoningResult, RetrievedFact } from "../types";
+import type { Choice, EvaluationCondition, FiredRule, ModelAnswer, ReasoningInput, ReasoningResult, RetrievedFact, WebContextSource } from "../types";
 import { describeImageWithFirebaseAi, answerWithFirebaseAi } from "./firebaseAi";
 import { describeImageLocally, groundObjects } from "./grounding";
 import { buildAugmentedPrompt, buildBaselinePrompt } from "./prompts";
 import { firePhysicsRules } from "./physicsRules";
 import { factsToEvidence, retrieveFacts, retrieveRandomFacts } from "./retrieval";
 import { lexicalOverlap, parseChoiceLetter, sentence, tokenize } from "./text";
+import { generateContextQuestions, retrieveWebContext } from "./webContext";
 
 type AnswerOptions = {
   condition: EvaluationCondition;
   facts: RetrievedFact[];
   rules: FiredRule[];
+  webContext?: WebContextSource[];
 };
 
 const intentHints = [
@@ -24,15 +26,20 @@ const intentHints = [
   { match: ["magnet", "magnetic", "attract"], hints: ["iron", "steel", "magnet"] },
 ];
 
-function evidenceText(facts: RetrievedFact[], rules: FiredRule[]) {
+function webEvidenceText(webContext: WebContextSource[]) {
+  return webContext.map((source) => `${source.title}: ${source.extract}`).join(" ");
+}
+
+function evidenceText(facts: RetrievedFact[], rules: FiredRule[], webContext: WebContextSource[] = []) {
   return [
     ...factsToEvidence(facts),
     ...rules.map((rule) => `${rule.statement} ${rule.explanation}`),
+    webEvidenceText(webContext),
   ].join(" ");
 }
 
-function scoreChoice(choice: Choice, question: string, facts: RetrievedFact[], rules: FiredRule[], condition: EvaluationCondition) {
-  const evidence = evidenceText(facts, rules);
+function scoreChoice(choice: Choice, question: string, facts: RetrievedFact[], rules: FiredRule[], condition: EvaluationCondition, webContext: WebContextSource[] = []) {
+  const evidence = evidenceText(facts, rules, webContext);
   const choiceText = choice.text.toLowerCase();
   let score = lexicalOverlap(choice.text, `${question} ${evidence}`) * 1.2;
 
@@ -42,6 +49,10 @@ function scoreChoice(choice: Choice, question: string, facts: RetrievedFact[], r
 
   rules.forEach((rule) => {
     score += lexicalOverlap(choice.text, `${rule.statement} ${rule.explanation}`) * (0.8 + rule.score);
+  });
+
+  webContext.forEach((source) => {
+    score += lexicalOverlap(choice.text, `${source.title} ${source.extract}`) * (0.45 + Math.min(source.score, 1));
   });
 
   const qTokens = tokenize(question);
@@ -82,8 +93,8 @@ function includesAny(text: string, terms: string[]) {
   return terms.some((term) => normalized.includes(term));
 }
 
-function specializedPhysicalAnswer(question: string, facts: RetrievedFact[], rules: FiredRule[]) {
-  const evidence = `${question} ${evidenceText(facts, rules)}`.toLowerCase();
+function specializedPhysicalAnswer(question: string, facts: RetrievedFact[], rules: FiredRule[], webContext: WebContextSource[] = []) {
+  const evidence = `${question} ${evidenceText(facts, rules, webContext)}`.toLowerCase();
   const subjects = new Set(facts.map((fact) => fact.subject));
 
   if (includesAny(evidence, ["break", "breaks", "dropped", "drop", "shatter"]) && subjects.has("glass")) {
@@ -113,12 +124,18 @@ function specializedPhysicalAnswer(question: string, facts: RetrievedFact[], rul
   return "";
 }
 
-function answerFreeResponse(question: string, facts: RetrievedFact[], rules: FiredRule[], condition: EvaluationCondition): ModelAnswer {
+function firstSentence(value: string) {
+  return value.split(/(?<=[.!?])\s+/)[0] || value;
+}
+
+function answerFreeResponse(question: string, facts: RetrievedFact[], rules: FiredRule[], condition: EvaluationCondition, webContext: WebContextSource[] = []): ModelAnswer {
   const topFact = facts[0];
   const topRule = rules[0];
+  const topWeb = webContext[0];
   const evidence = [
     ...facts.slice(0, 4).map((fact) => `${fact.subject} ${fact.relation}: ${fact.object}`),
     ...rules.slice(0, 3).map((rule) => rule.statement),
+    ...webContext.slice(0, 3).map((source) => `Web: ${source.title} - ${firstSentence(source.extract)}`),
   ];
 
   if (condition === "baseline") {
@@ -132,12 +149,23 @@ function answerFreeResponse(question: string, facts: RetrievedFact[], rules: Fir
     };
   }
 
-  const specialized = specializedPhysicalAnswer(question, facts, rules);
+  const specialized = specializedPhysicalAnswer(question, facts, rules, webContext);
   if (specialized) {
     return {
       answer: specialized,
       confidence: 0.88,
       reasoning: `Matched the question to physical evidence retrieved from detected objects and rules.`,
+      evidence,
+      source: "local-symbolic",
+    };
+  }
+
+  if (topWeb && !topRule && !topFact) {
+    const answer = `${firstSentence(topWeb.extract)} Based on the retrieved web context, this is the most relevant grounding for the question.`;
+    return {
+      answer,
+      confidence: 0.69,
+      reasoning: `Used live web context from ${topWeb.title} because no local ConceptNet fact or physics rule matched strongly.`,
       evidence,
       source: "local-symbolic",
     };
@@ -187,10 +215,11 @@ function answerFreeResponse(question: string, facts: RetrievedFact[], rules: Fir
 }
 
 function answerLocally(question: string, choices: Choice[], options: AnswerOptions): ModelAnswer {
+  const webContext = options.webContext ?? [];
   const ranked = choices
     .map((choice) => ({
       choice,
-      score: scoreChoice(choice, question, options.facts, options.rules, options.condition),
+      score: scoreChoice(choice, question, options.facts, options.rules, options.condition, webContext),
     }))
     .sort((a, b) => b.score - a.score);
 
@@ -199,6 +228,7 @@ function answerLocally(question: string, choices: Choice[], options: AnswerOptio
   const evidence = [
     ...options.facts.slice(0, 4).map((fact) => `${fact.subject} ${fact.relation}: ${fact.object}`),
     ...options.rules.slice(0, 3).map((rule) => rule.statement),
+    ...webContext.slice(0, 3).map((source) => `Web: ${source.title} - ${firstSentence(source.extract)}`),
   ];
 
   if (choices.length > 0 && best) {
@@ -218,7 +248,7 @@ function answerLocally(question: string, choices: Choice[], options: AnswerOptio
     };
   }
 
-  return answerFreeResponse(question, options.facts, options.rules, options.condition);
+  return answerFreeResponse(question, options.facts, options.rules, options.condition, webContext);
 }
 
 export async function runReasoning(input: ReasoningInput): Promise<ReasoningResult> {
@@ -239,12 +269,29 @@ export async function runReasoning(input: ReasoningInput): Promise<ReasoningResu
   }
 
   const detectedObjects = groundObjects(input.question, imageDescription);
+  let webContext: WebContextSource[] = [];
+  if (input.useWebContext) {
+    try {
+      webContext = await retrieveWebContext({
+        question: input.question,
+        imageDescription,
+        objects: detectedObjects.combined,
+      });
+      if (webContext.length) {
+        method = `${method}; live web context retrieved from Wikipedia`;
+      }
+    } catch (error) {
+      method = `${method}; web context retrieval skipped after error: ${(error as Error).message}`;
+    }
+  }
+
+  const contextQuestions = generateContextQuestions(input.question, detectedObjects.combined, webContext);
   const retrievedFacts = retrieveFacts(input.question, detectedObjects.combined, 6);
   const firedRules = firePhysicsRules(input.question, detectedObjects.combined);
   const groundedQuestion = `Image description: ${imageDescription}\nQuestion: ${input.question}`;
   const prompts = {
     baseline: buildBaselinePrompt(groundedQuestion, input.choices),
-    augmented: buildAugmentedPrompt(groundedQuestion, input.choices, retrievedFacts, firedRules),
+    augmented: buildAugmentedPrompt(groundedQuestion, input.choices, retrievedFacts, firedRules, webContext),
   };
 
   let baselineAnswer = answerLocally(input.question, input.choices, {
@@ -256,6 +303,7 @@ export async function runReasoning(input: ReasoningInput): Promise<ReasoningResu
     condition: "fullSystem",
     facts: retrievedFacts,
     rules: firedRules,
+    webContext,
   });
 
   if (input.useFirebaseAi) {
@@ -264,7 +312,11 @@ export async function runReasoning(input: ReasoningInput): Promise<ReasoningResu
       augmentedAnswer = await answerWithFirebaseAi(
         prompts.augmented,
         input.choices,
-        [...retrievedFacts.map((fact) => `${fact.subject}: ${fact.object}`), ...firedRules.map((rule) => rule.statement)],
+        [
+          ...retrievedFacts.map((fact) => `${fact.subject}: ${fact.object}`),
+          ...firedRules.map((rule) => rule.statement),
+          ...webContext.map((source) => `${source.title}: ${source.extract}`),
+        ],
       );
     } catch (error) {
       method = `${method}; answer generation used local fallback after Firebase AI error: ${(error as Error).message}`;
@@ -279,6 +331,8 @@ export async function runReasoning(input: ReasoningInput): Promise<ReasoningResu
     imageName: input.imageFile?.name,
     imageDescription,
     detectedObjects,
+    webContext,
+    contextQuestions,
     retrievedFacts,
     firedRules,
     prompts,
@@ -287,6 +341,7 @@ export async function runReasoning(input: ReasoningInput): Promise<ReasoningResu
     diagnostics: {
       factCoverage: retrievedFacts.length,
       ruleCoverage: firedRules.length,
+      webContextCoverage: webContext.length,
       kgLift: augmentedAnswer.confidence - baselineAnswer.confidence,
       method,
     },

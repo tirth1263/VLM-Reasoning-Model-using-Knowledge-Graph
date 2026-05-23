@@ -72,6 +72,7 @@ export function ReasoningConsole({ onResult, onDraftChange }: Props) {
   const [sceneNotesSource, setSceneNotesSource] = useState<SceneNotesSource>("preset");
   const [answerMode, setAnswerMode] = useState<"free" | "multiple">("free");
   const [useFirebaseAi, setUseFirebaseAi] = useState(true);
+  const [useWebContext, setUseWebContext] = useState(true);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState("");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -131,6 +132,7 @@ export function ReasoningConsole({ onResult, onDraftChange }: Props) {
         imageFile,
         imageDescription: imageDescription.trim(),
         useFirebaseAi,
+        useWebContext,
       };
       const result = await runReasoning(payload);
       if (activeRunRef.current !== runId) return;
@@ -152,17 +154,30 @@ export function ReasoningConsole({ onResult, onDraftChange }: Props) {
           </span>
           <h1>Physical reasoning with grounded knowledge</h1>
         </div>
-        <label className="switch">
-          <input
-            type="checkbox"
-            checked={useFirebaseAi}
-            onChange={(event) => {
-              markDraftChanged();
-              setUseFirebaseAi(event.target.checked);
-            }}
-          />
-          <span>Firebase AI VLM auto</span>
-        </label>
+        <div className="console-toggles">
+          <label className="switch">
+            <input
+              type="checkbox"
+              checked={useFirebaseAi}
+              onChange={(event) => {
+                markDraftChanged();
+                setUseFirebaseAi(event.target.checked);
+              }}
+            />
+            <span>Firebase AI VLM auto</span>
+          </label>
+          <label className="switch">
+            <input
+              type="checkbox"
+              checked={useWebContext}
+              onChange={(event) => {
+                markDraftChanged();
+                setUseWebContext(event.target.checked);
+              }}
+            />
+            <span>Web context auto</span>
+          </label>
+        </div>
       </div>
 
       <div className="console-stats" aria-label="Research metrics">
@@ -321,7 +336,7 @@ export function ReasoningConsole({ onResult, onDraftChange }: Props) {
       <div className="action-row">
         <div className="method-note">
           <FileImage size={16} />
-          <span>Image cues, ConceptNet-style facts, and physics rules are fused before answer generation.</span>
+          <span>Image cues, ConceptNet-style facts, web context, and physics rules are fused before answer generation.</span>
         </div>
         <button className="primary-button" type="button" disabled={!ready || running} onClick={run}>
           {running ? <FlaskConical size={18} /> : <Play size={18} />}

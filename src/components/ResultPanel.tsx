@@ -1,5 +1,5 @@
-import { ArrowRight, CheckCircle2, Cpu, Eye, FileText, GitBranch, ListChecks, Network, ShieldCheck } from "lucide-react";
-import type { FiredRule, ModelAnswer, ReasoningResult, RetrievedFact } from "../types";
+import { ArrowRight, CheckCircle2, Cpu, Eye, FileText, GitBranch, Globe2, HelpCircle, ListChecks, Network, ShieldCheck } from "lucide-react";
+import type { FiredRule, ModelAnswer, ReasoningResult, RetrievedFact, WebContextSource } from "../types";
 
 function pct(value: number) {
   return `${Math.round(value * 100)}%`;
@@ -57,6 +57,31 @@ function RuleList({ rules }: { rules: FiredRule[] }) {
   );
 }
 
+function WebSourceList({ sources }: { sources: WebContextSource[] }) {
+  if (!sources.length) return <EmptyValue>No web context retrieved for this run.</EmptyValue>;
+  return (
+    <div className="web-source-list">
+      {sources.map((source) => (
+        <a href={source.url} target="_blank" rel="noreferrer" key={source.id}>
+          <strong>{source.title}</strong>
+          <span>{source.extract}</span>
+        </a>
+      ))}
+    </div>
+  );
+}
+
+function ContextQuestionList({ questions }: { questions: string[] }) {
+  if (!questions.length) return <EmptyValue>No context questions generated yet.</EmptyValue>;
+  return (
+    <div className="context-question-list">
+      {questions.map((question) => (
+        <span key={question}>{question}</span>
+      ))}
+    </div>
+  );
+}
+
 export function ResultPanel({ result }: { result?: ReasoningResult | null }) {
   if (!result) {
     return (
@@ -67,6 +92,9 @@ export function ResultPanel({ result }: { result?: ReasoningResult | null }) {
       </section>
     );
   }
+
+  const webContext = result.webContext ?? [];
+  const contextQuestions = result.contextQuestions ?? [];
 
   return (
     <section className="workspace-panel result-panel implementation-output" aria-label="Reasoning result">
@@ -106,6 +134,10 @@ export function ResultPanel({ result }: { result?: ReasoningResult | null }) {
           <strong>{result.firedRules.length}</strong>
           <span>rules</span>
         </div>
+        <div>
+          <strong>{webContext.length}</strong>
+          <span>web sources</span>
+        </div>
       </div>
 
       <div className="trace-section">
@@ -132,6 +164,22 @@ export function ResultPanel({ result }: { result?: ReasoningResult | null }) {
           PaliGemma image description
         </h3>
         <p className="description-box">{result.imageDescription}</p>
+      </div>
+
+      <div className="trace-section">
+        <h3>
+          <Globe2 size={17} />
+          Web-scraped context
+        </h3>
+        <WebSourceList sources={webContext} />
+      </div>
+
+      <div className="trace-section">
+        <h3>
+          <HelpCircle size={17} />
+          Context-related questions
+        </h3>
+        <ContextQuestionList questions={contextQuestions} />
       </div>
 
       <div className="trace-section">

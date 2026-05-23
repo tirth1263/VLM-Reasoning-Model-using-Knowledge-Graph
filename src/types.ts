@@ -41,12 +41,23 @@ export type ModelAnswer = {
   source: "local-symbolic" | "firebase-ai" | "fallback";
 };
 
+export type WebContextSource = {
+  id: string;
+  title: string;
+  url: string;
+  query: string;
+  extract: string;
+  source: "wikipedia";
+  score: number;
+};
+
 export type ReasoningInput = {
   question: string;
   choices: Choice[];
   imageFile?: File | null;
   imageDescription?: string;
   useFirebaseAi: boolean;
+  useWebContext: boolean;
 };
 
 export type ReasoningResult = {
@@ -61,6 +72,8 @@ export type ReasoningResult = {
     fromQuestion: string[];
     combined: string[];
   };
+  webContext: WebContextSource[];
+  contextQuestions: string[];
   retrievedFacts: RetrievedFact[];
   firedRules: FiredRule[];
   prompts: {
@@ -72,6 +85,7 @@ export type ReasoningResult = {
   diagnostics: {
     factCoverage: number;
     ruleCoverage: number;
+    webContextCoverage: number;
     kgLift: number;
     method: string;
   };
