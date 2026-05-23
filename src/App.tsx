@@ -98,13 +98,12 @@ function App() {
       )}
 
       <div className="main-grid implementation-grid">
-        <ReasoningConsole onResult={handleResult} onDraftChange={handleDraftChange} />
-        <ResultPanel result={result} />
-      </div>
-
-      <div className="secondary-grid">
-        <EvaluationLab run={evaluation} onRun={setEvaluation} onSave={handleEvaluationSave} />
+        <div className="primary-stack">
+          <ReasoningConsole onResult={handleResult} onDraftChange={handleDraftChange} />
+          <EvaluationLab run={evaluation} onRun={setEvaluation} onSave={handleEvaluationSave} />
+        </div>
         <aside className="side-stack">
+          <ResultPanel result={result} />
           <HistoryPanel sessions={sessions} onRefresh={refreshHistory} onSelect={setResult} />
           <KnowledgeExplorer />
         </aside>
