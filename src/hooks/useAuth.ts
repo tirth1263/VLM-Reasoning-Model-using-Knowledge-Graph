@@ -62,6 +62,9 @@ export function useAuth() {
 }
 
 function readableAuthError(error: AuthError) {
+  if (error.code === "auth/configuration-not-found") {
+    return "Firebase Authentication is not initialized for this project. In Firebase Console, open Authentication, click Get started, enable Google sign-in, and add this hosting domain to Authorized domains.";
+  }
   if (error.code === "auth/unauthorized-domain") {
     return "Google sign-in is blocked because this domain is not authorized in Firebase Authentication settings.";
   }
