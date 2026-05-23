@@ -85,6 +85,12 @@ export function ResultPanel({ result }: { result?: ReasoningResult | null }) {
         </div>
       </div>
 
+      <div className="final-answer">
+        <span>Final KG-grounded answer</span>
+        <strong>{result.augmentedAnswer.answer}</strong>
+        <p>{result.augmentedAnswer.reasoning}</p>
+      </div>
+
       <div className="trace-topic">{inferTopic(result)}</div>
 
       <div className="trace-stats">

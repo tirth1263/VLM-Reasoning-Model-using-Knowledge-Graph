@@ -12,7 +12,7 @@ import type { EvaluationRun, ReasoningResult } from "./types";
 import "./App.css";
 
 function App() {
-  const { user, loading, signIn, signOut } = useAuth();
+  const { user, loading, authError, signIn, signOut } = useAuth();
   const [result, setResult] = useState<ReasoningResult | null>(null);
   const [sessions, setSessions] = useState<ReasoningResult[]>([]);
   const [evaluation, setEvaluation] = useState<EvaluationRun | null>(null);
@@ -81,7 +81,7 @@ function App() {
         </div>
         <div className="top-actions">
           <ThemeSwitcher theme={theme} onThemeChange={setTheme} />
-          <AuthPanel user={user} loading={loading} onSignIn={signIn} onSignOut={signOut} />
+          <AuthPanel user={user} loading={loading} authError={authError} onSignIn={signIn} onSignOut={signOut} />
         </div>
       </header>
 

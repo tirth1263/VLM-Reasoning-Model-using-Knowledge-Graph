@@ -4,7 +4,7 @@ import { normalizeText, unique } from "./text";
 function includesTerm(text: string, term: string) {
   const normalized = normalizeText(text);
   const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return new RegExp(`(^|\\s)${escaped.replace(/\s+/g, "\\s+")}(\\s|$)`).test(normalized);
+  return new RegExp(`(^|\\s)${escaped.replace(/\s+/g, "\\s+")}s?(\\s|$)`).test(normalized);
 }
 
 export function extractPhysicalTerms(text: string) {

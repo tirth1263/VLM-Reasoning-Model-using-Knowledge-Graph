@@ -51,6 +51,8 @@ const examples: Array<{
   },
 ];
 
+const presetSceneNotes = new Set(examples.map((example) => example.imageDescription));
+
 type Props = {
   onResult: (result: ReasoningResult, imageFile?: File | null) => Promise<void> | void;
 };
@@ -61,7 +63,7 @@ export function ReasoningConsole({ onResult }: Props) {
   const [imageDescription, setImageDescription] = useState(examples[0].imageDescription);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [answerMode, setAnswerMode] = useState<"free" | "multiple">("free");
-  const [useFirebaseAi, setUseFirebaseAi] = useState(false);
+  const [useFirebaseAi, setUseFirebaseAi] = useState(true);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState("");
 
@@ -83,8 +85,8 @@ export function ReasoningConsole({ onResult }: Props) {
 
   function updateImage(file: File | null) {
     setImageFile(file);
-    if (file && !imageDescription.trim()) {
-      setImageDescription(file.name.replace(/\.[a-z0-9]+$/i, "").replace(/[-_]/g, " "));
+    if (file && (!imageDescription.trim() || presetSceneNotes.has(imageDescription))) {
+      setImageDescription(file.name.replace(/\.[a-z0-9]+$/i, "").replace(/[-_&]/g, " "));
     }
   }
 
@@ -121,7 +123,7 @@ export function ReasoningConsole({ onResult }: Props) {
         </div>
         <label className="switch">
           <input type="checkbox" checked={useFirebaseAi} onChange={(event) => setUseFirebaseAi(event.target.checked)} />
-          <span>Firebase AI VLM</span>
+          <span>Firebase AI VLM auto</span>
         </label>
       </div>
 
@@ -184,7 +186,7 @@ export function ReasoningConsole({ onResult }: Props) {
           <textarea id="question" value={question} onChange={(event) => setQuestion(event.target.value)} rows={5} />
 
           <label className="field-label" htmlFor="scene">
-            Scene notes
+            Scene notes (optional)
           </label>
           <textarea id="scene" value={imageDescription} onChange={(event) => setImageDescription(event.target.value)} rows={3} />
         </div>

@@ -201,6 +201,11 @@ body {
   background: var(--surface-strong);
 }
 
+.auth-panel {
+  flex-wrap: wrap;
+  max-width: 520px;
+}
+
 .theme-label,
 .auth-copy {
   display: flex;
@@ -209,6 +214,18 @@ body {
   color: var(--muted-strong);
   font-size: 14px;
   white-space: nowrap;
+}
+
+.auth-error {
+  flex-basis: 100%;
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid color-mix(in srgb, var(--accent-4) 45%, transparent);
+  border-radius: 8px;
+  color: var(--heading);
+  background: color-mix(in srgb, var(--accent-4) 13%, transparent);
+  font-size: 12px;
+  line-height: 1.35;
 }
 
 .theme-options {
@@ -574,6 +591,7 @@ textarea:focus,
   min-height: 220px;
   gap: 9px;
   padding: 20px;
+  overflow: hidden;
   border: 1px dashed var(--border-strong);
   border-radius: 8px;
   color: var(--muted-strong);
@@ -610,8 +628,11 @@ textarea:focus,
 }
 
 .image-preview {
+  display: block;
   width: 100%;
-  max-height: 250px;
+  max-width: 100%;
+  height: auto;
+  max-height: 360px;
   object-fit: contain;
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -803,6 +824,40 @@ textarea:focus,
 
 .implementation-output {
   align-self: start;
+}
+
+.final-answer {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 14px;
+  padding: 16px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--accent) 18%, transparent), color-mix(in srgb, var(--accent-2) 16%, transparent)),
+    var(--surface-card);
+  box-shadow: 0 16px 34px color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.final-answer span {
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 950;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.final-answer strong {
+  color: var(--heading);
+  font-size: 20px;
+  line-height: 1.25;
+}
+
+.final-answer p {
+  margin: 0;
+  color: var(--muted-strong);
+  font-size: 14px;
+  line-height: 1.45;
 }
 
 .trace-topic {
