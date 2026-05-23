@@ -34,6 +34,7 @@ function App() {
 
   const handleDraftChange = useCallback(() => {
     setResult(null);
+    setEvaluation(null);
     setNotice("");
   }, []);
 
