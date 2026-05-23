@@ -32,6 +32,11 @@ function App() {
     setSessions(recent);
   }, [user]);
 
+  const handleDraftChange = useCallback(() => {
+    setResult(null);
+    setNotice("");
+  }, []);
+
   useEffect(() => {
     // Firestore history is external state; refresh when auth changes.
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -92,7 +97,7 @@ function App() {
       )}
 
       <div className="main-grid implementation-grid">
-        <ReasoningConsole onResult={handleResult} />
+        <ReasoningConsole onResult={handleResult} onDraftChange={handleDraftChange} />
         <ResultPanel result={result} />
       </div>
 

@@ -1345,6 +1345,16 @@ pre {
     overflow-x: hidden;
   }
 
+  .workspace-panel,
+  .console-panel,
+  .result-panel,
+  .evaluation-panel,
+  .knowledge-panel,
+  .history-panel,
+  .empty-panel {
+    padding: 16px;
+  }
+
   .topbar,
   .top-actions,
   .theme-switcher,
@@ -1406,5 +1416,14 @@ pre {
 
   .case-row {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .upload-box,
+  .upload-box label {
+    min-height: 260px;
+  }
+
+  .image-preview {
+    max-height: 42vh;
   }
 }

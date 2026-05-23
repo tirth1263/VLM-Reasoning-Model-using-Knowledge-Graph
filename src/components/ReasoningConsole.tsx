@@ -10,7 +10,7 @@ import {
   WandSparkles,
   X,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Choice, ReasoningInput, ReasoningResult } from "../types";
 import { runReasoning } from "../model/localReasoner";
 
@@ -55,17 +55,27 @@ const presetSceneNotes = new Set(examples.map((example) => example.imageDescript
 
 type Props = {
   onResult: (result: ReasoningResult, imageFile?: File | null) => Promise<void> | void;
+  onDraftChange?: () => void;
 };
 
-export function ReasoningConsole({ onResult }: Props) {
+type SceneNotesSource = "preset" | "auto" | "manual";
+
+function sceneNoteFromFile(file: File) {
+  return file.name.replace(/\.[a-z0-9]+$/i, "").replace(/[-_&]/g, " ");
+}
+
+export function ReasoningConsole({ onResult, onDraftChange }: Props) {
   const [question, setQuestion] = useState(examples[0].question);
   const [choices, setChoices] = useState<Choice[]>(sampleChoices);
   const [imageDescription, setImageDescription] = useState(examples[0].imageDescription);
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [sceneNotesSource, setSceneNotesSource] = useState<SceneNotesSource>("preset");
   const [answerMode, setAnswerMode] = useState<"free" | "multiple">("free");
   const [useFirebaseAi, setUseFirebaseAi] = useState(true);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState("");
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const activeRunRef = useRef(0);
 
   const ready = useMemo(
     () => question.trim().length > 5 && (answerMode === "free" || choices.some((choice) => choice.text.trim())),
@@ -80,34 +90,55 @@ export function ReasoningConsole({ onResult }: Props) {
   }, [imagePreviewUrl]);
 
   function updateChoice(index: number, text: string) {
+    markDraftChanged();
     setChoices((current) => current.map((choice, itemIndex) => (itemIndex === index ? { ...choice, text } : choice)));
   }
 
+  function markDraftChanged() {
+    activeRunRef.current += 1;
+    setRunning(false);
+    setError("");
+    onDraftChange?.();
+  }
+
   function updateImage(file: File | null) {
+    markDraftChanged();
     setImageFile(file);
-    if (file && (!imageDescription.trim() || presetSceneNotes.has(imageDescription))) {
-      setImageDescription(file.name.replace(/\.[a-z0-9]+$/i, "").replace(/[-_&]/g, " "));
+
+    if (!file) {
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      if (sceneNotesSource === "auto") setImageDescription("");
+      return;
+    }
+
+    const nextSceneNote = sceneNoteFromFile(file);
+    if (!imageDescription.trim() || presetSceneNotes.has(imageDescription) || sceneNotesSource !== "manual") {
+      setImageDescription(nextSceneNote);
+      setSceneNotesSource("auto");
     }
   }
 
   async function run() {
     if (!ready) return;
+    const runId = activeRunRef.current + 1;
+    activeRunRef.current = runId;
     setRunning(true);
     setError("");
     try {
       const payload: ReasoningInput = {
-        question,
+        question: question.trim(),
         choices: answerMode === "free" ? [] : choices.filter((choice) => choice.text.trim()),
         imageFile,
-        imageDescription,
+        imageDescription: imageDescription.trim(),
         useFirebaseAi,
       };
       const result = await runReasoning(payload);
+      if (activeRunRef.current !== runId) return;
       await onResult(result, imageFile);
     } catch (reason) {
-      setError((reason as Error).message);
+      if (activeRunRef.current === runId) setError((reason as Error).message);
     } finally {
-      setRunning(false);
+      if (activeRunRef.current === runId) setRunning(false);
     }
   }
 
@@ -122,7 +153,14 @@ export function ReasoningConsole({ onResult }: Props) {
           <h1>Physical reasoning with grounded knowledge</h1>
         </div>
         <label className="switch">
-          <input type="checkbox" checked={useFirebaseAi} onChange={(event) => setUseFirebaseAi(event.target.checked)} />
+          <input
+            type="checkbox"
+            checked={useFirebaseAi}
+            onChange={(event) => {
+              markDraftChanged();
+              setUseFirebaseAi(event.target.checked);
+            }}
+          />
           <span>Firebase AI VLM auto</span>
         </label>
       </div>
@@ -155,9 +193,11 @@ export function ReasoningConsole({ onResult }: Props) {
             type="button"
             key={example.label}
             onClick={() => {
+              markDraftChanged();
               setQuestion(example.question);
               setChoices(example.choices.length ? example.choices : sampleChoices);
               setImageDescription(example.imageDescription);
+              setSceneNotesSource("preset");
               setAnswerMode(example.mode ?? "free");
             }}
           >
@@ -168,11 +208,25 @@ export function ReasoningConsole({ onResult }: Props) {
       </div>
 
       <div className="mode-toggle" aria-label="Answer mode">
-        <button className={answerMode === "free" ? "active" : ""} type="button" onClick={() => setAnswerMode("free")}>
+        <button
+          className={answerMode === "free" ? "active" : ""}
+          type="button"
+          onClick={() => {
+            markDraftChanged();
+            setAnswerMode("free");
+          }}
+        >
           <MessageSquareText size={16} />
           Free response
         </button>
-        <button className={answerMode === "multiple" ? "active" : ""} type="button" onClick={() => setAnswerMode("multiple")}>
+        <button
+          className={answerMode === "multiple" ? "active" : ""}
+          type="button"
+          onClick={() => {
+            markDraftChanged();
+            setAnswerMode("multiple");
+          }}
+        >
           <ListChecks size={16} />
           Multiple choice
         </button>
@@ -183,19 +237,40 @@ export function ReasoningConsole({ onResult }: Props) {
           <label className="field-label" htmlFor="question">
             Question
           </label>
-          <textarea id="question" value={question} onChange={(event) => setQuestion(event.target.value)} rows={5} />
+          <textarea
+            id="question"
+            value={question}
+            onChange={(event) => {
+              markDraftChanged();
+              setQuestion(event.target.value);
+            }}
+            rows={5}
+          />
 
           <label className="field-label" htmlFor="scene">
             Scene notes (optional)
           </label>
-          <textarea id="scene" value={imageDescription} onChange={(event) => setImageDescription(event.target.value)} rows={3} />
+          <textarea
+            id="scene"
+            value={imageDescription}
+            onChange={(event) => {
+              markDraftChanged();
+              setImageDescription(event.target.value);
+              setSceneNotesSource("manual");
+            }}
+            rows={3}
+          />
         </div>
 
         <div className="upload-box">
           <input
+            ref={fileInputRef}
             id="image-upload"
             type="file"
             accept="image/png,image/jpeg,image/webp"
+            onClick={(event) => {
+              event.currentTarget.value = "";
+            }}
             onChange={(event) => updateImage(event.target.files?.[0] ?? null)}
           />
           <label
